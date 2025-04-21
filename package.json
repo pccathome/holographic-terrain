@@ -1,0 +1,24 @@
+{
+    "name": "holographic-terrain",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@tailwindcss/vite": "^4.1.3",
+        "gsap": "^3.12.7",
+        "postprocessing": "^6.37.2",
+        "tailwindcss": "^4.1.3",
+        "three": "^0.175.0",
+        "vue": "^3.5.13"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-vue": "^5.2.1",
+        "lil-gui": "^0.20.0",
+        "vite": "^6.2.0"
+    }
+}
