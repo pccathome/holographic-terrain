@@ -169,19 +169,19 @@ const setupScene = (canvas) => {
         terrain.material.uniforms.uTexture.value = tex.instance
     })
 
-    gui.add(tex, 'smallLineWidth', 0.0, 0.1, 0.0001).onChange((value) => {
+    gui.add(tex, 'smallLineWidth', 0.0, 0.05, 0.001).onChange((value) => {
         tex.smallLineWidth = value
         tex.update()
         tex.instance.needsUpdate = true
         terrain.material.uniforms.uTexture.value = tex.instance
     })
 
-    gui.add(tex, 'smallLineAlpha', 0.0, 1, 0.001).onChange((value) => {
-        tex.smallLineWidth = value
-        tex.update()
-        tex.instance.needsUpdate = true
-        terrain.material.uniforms.uTexture.value = tex.instance
-    })
+    // gui.add(tex, 'smallLineAlpha', 0.0, 0.6, 0.0001).onChange((value) => {
+    //     tex.smallLineWidth = value
+    //     tex.update()
+    //     tex.instance.needsUpdate = true
+    //     terrain.material.uniforms.uTexture.value = tex.instance
+    // })
 
     // geometry
     terrain.geometry = new THREE.PlaneGeometry(1, 1, 1000, 1000)
@@ -199,7 +199,14 @@ const setupScene = (canvas) => {
         uElevationDetails: { value: 0.2 },
         uElevationDetailsFrequency: { value: 2.012 },
         uTextureOffset: { value: 0.585 },
-        uTime: { value: 0.0 }
+        uTime: { value: 0.0 },
+        uHslHue: { value: 1.0 },
+        uHslHueOffset: { value: 0.0 },
+        uHslHueFrequency: { value: 10.0 },
+        uHslTimeFrequency: { value: 0.05 },
+        uHslLightness: { value: 0.75 },
+        uHslLightnessVariation: { value: 0.25 },
+        uHslLightnessFrequency: { value: 20.0 }
     }
 
     // Material
