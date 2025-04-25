@@ -5,7 +5,7 @@ import GUI from 'lil-gui'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { BokehPass } from './Passes/BokehPass'
+import { BokehPass } from './Passes/BokehPass.js'
 
 // import { useCanvasTexture } from './composables/useCanvasTexture'
 // import { gsap } from 'gsap'
@@ -13,10 +13,14 @@ import { BokehPass } from './Passes/BokehPass'
 import PageWrap from './components/PageWrap.vue'
 import Header from './components/Header.vue'
 import FooterInfo from './components/FooterInfo.vue'
-import terrainVertexShader from './shaders/terrain/vertex.glsl?raw'
-import terrainFragmentShader from './shaders/terrain/fragment.glsl?raw'
-// import terrainDepthVertexShader from './shaders/terrainDepth/vertex.glsl?raw'
-// import terrainDepthFragmentShader from './shaders/terrainDepth/fragment.glsl?raw'
+import terrainVertexShader from './shaders/terrain/vertex.glsl'
+import terrainFragmentShader from './shaders/terrain/fragment.glsl'
+import terrainDepthVertexShader from './shaders/terrainDepth/vertex.glsl'
+import terrainDepthFragmentShader from './shaders/terrainDepth/fragment.glsl'
+import { uniform } from 'three/tsl'
+
+// const shaders = import.meta.glob('./shaders/**/*.glsl', { eager: true })
+// console.log(shaders)
 
 // Refs & Globals
 const webgl = ref(null)
@@ -96,7 +100,7 @@ const setupScene = (canvas) => {
     const tex = terrain.texture
     tex.linesCount = 5
     tex.bigLineWidth = 0.08
-    tex.bigLineAlpha = 1
+    // tex.bigLineAlpha = 1
     tex.smallLineWidth = 0.01
     tex.smallLineAlpha = 0.5
     tex.canvas.width = tex.width
@@ -125,10 +129,9 @@ const setupScene = (canvas) => {
         tex.context.clearRect(0, 0, tex.width, tex.height)
 
         // Biggest line
-
         const actualBigLineWidth = Math.round(tex.height * tex.bigLineWidth)
         tex.context.fillStyle = '#ffffff'
-        tex.context.globalAlpha = tex.bigLineAlpha
+        tex.context.globalAlpha = 1
         tex.context.fillRect(0, 0, tex.width, actualBigLineWidth)
 
         // Small lines
@@ -137,6 +140,7 @@ const setupScene = (canvas) => {
 
         for (let i = 0; i < smallLinesCount; i++) {
             tex.context.globalAlpha = tex.smallLineAlpha
+            tex.context.fillStyle = '#00ffff'
             tex.context.fillRect(
                 0,
                 actualBigLineWidth + Math.round((tex.height - actualBigLineWidth) / tex.linesCount) * (i + 1),
@@ -179,28 +183,60 @@ const setupScene = (canvas) => {
         terrain.material.uniforms.uTexture.value = tex.instance
     })
 
+    // geometry
     terrain.geometry = new THREE.PlaneGeometry(1, 1, 1000, 1000)
     terrain.geometry.rotateX(-Math.PI * 0.5)
 
+    // terrain uniform
+    terrain.uniforms = {
+        uTexture: { value: tex.instance },
+        uElevation: { value: 2.0 },
+        uTextureFrequency: { value: 10.0 },
+        uElevationValley: { value: 0.4 },
+        uElevationValleyFrequency: { value: 1.5 },
+        uElevationGeneral: { value: 0.2 },
+        uElevationGeneralFrequency: { value: 0.2 },
+        uElevationDetails: { value: 0.2 },
+        uElevationDetailsFrequency: { value: 2.012 },
+        uTextureOffset: { value: 0.585 },
+        uTime: { value: 0.0 }
+    }
+
+    // Material
     terrain.material = new THREE.ShaderMaterial({
         transparent: true,
         side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
+        // blending: THREE.AdditiveBlending,
         vertexShader: terrainVertexShader,
         fragmentShader: terrainFragmentShader,
-        uniforms: {
-            uTexture: { value: tex.instance },
-            uElevation: { value: 2.0 },
-            uTextureFrequency: { value: 10.0 },
-            uTime: { value: 0.0 }
-        }
+        uniforms: terrain.uniforms
     })
 
+    // Depth material
+    const uniforms = THREE.UniformsUtils.merge([
+        THREE.UniformsLib.common,
+        THREE.UniformsLib.displacementmap,
+        terrain.uniforms
+    ])
+
+    // for (const uniformKey in terrain.uniforms) {
+    //     uniforms[uniformKey] = terrain.uniforms[uniformKey]
+    // }
+
+    terrain.depthMaterial = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: terrainDepthVertexShader,
+        fragmentShader: terrainDepthFragmentShader
+    })
+
+    terrain.depthMaterial.depthPacking = THREE.RGBADepthPacking
+    terrain.depthMaterial.blending = THREE.NoBlending
+
+    // Mesh
     terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
     terrain.mesh.scale.set(10, 10, 10)
+    terrain.mesh.userData.depthMaterial = terrain.depthMaterial
     scene.add(terrain.mesh)
-
-    // bokehPass.materialBokeh.uniforms.focus.value = camera.position.distanceTo(terrain.mesh.position)
 
     gui.add(terrain.material.uniforms.uTextureFrequency, 'value', 0.0, 20).name('uTextureFrequency')
     gui.add(terrain.material.uniforms.uElevation, 'value', 0.0, 5).name('uElevation')
@@ -243,7 +279,7 @@ const setupScene = (canvas) => {
         lastElapsedTime = elapsedTime
 
         // Update uniforms
-        terrain.material.uniforms.uTime.value = elapsedTime
+        terrain.uniforms.uTime.value = elapsedTime
 
         controls.update()
         // renderer.render(scene, camera)

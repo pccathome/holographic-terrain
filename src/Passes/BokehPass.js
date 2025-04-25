@@ -81,7 +81,7 @@ class BokehPass extends Pass {
 
     render(renderer, writeBuffer, readBuffer /*, deltaTime, maskActive*/) {
         // Render depth into texture
-        // this.scene.overrideMaterial = this.materialDepth;
+        // this.scene.overrideMaterial = this.materialDepth
 
         this.scene.traverse((_child) => {
             if (_child instanceof Mesh) {

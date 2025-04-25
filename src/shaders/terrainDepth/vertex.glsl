@@ -13,7 +13,8 @@ varying vec2 vHighPrecisionZW;
 
 uniform float uTime;
 
-#pragma glslify: getElevation = require('../partials/getElevation.glsl')
+// #pragma glslify: getElevation = require('../partials/getElevation.glsl')
+#include ../partials/getElevation.glsl;
 
 void main() {
 
