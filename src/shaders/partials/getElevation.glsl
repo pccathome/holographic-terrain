@@ -6,8 +6,8 @@ uniform float uElevationGeneralFrequency;
 uniform float uElevationDetails;
 uniform float uElevationDetailsFrequency;
 
-// #pragma glslify: getPerlinNoise2d = require('../partials/getPerlinNoise2d.glsl')
 #include ./getPerlinNoise2d.glsl
+
 
 float getElevation(vec2 _position)
 {
@@ -28,4 +28,4 @@ float getElevation(vec2 _position)
     return elevation;
 }
 
-// #pragma glslify: export(getElevation)
+#pragma glslify: export(getElevation)

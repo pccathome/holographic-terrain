@@ -17,6 +17,8 @@ import terrainVertexShader from './shaders/terrain/vertex.glsl'
 import terrainFragmentShader from './shaders/terrain/fragment.glsl'
 import terrainDepthVertexShader from './shaders/terrainDepth/vertex.glsl'
 import terrainDepthFragmentShader from './shaders/terrainDepth/fragment.glsl'
+import vignetteVertexShader from './shaders/overly/vertex.glsl'
+import vignetteFragmentShader from './shaders/overly/fragment.glsl'
 import { uniform } from 'three/tsl'
 
 // const shaders = import.meta.glob('./shaders/**/*.glsl', { eager: true })
@@ -27,7 +29,7 @@ const webgl = ref(null)
 const scene = new THREE.Scene()
 const gui = new GUI()
 
-let renderer, camera, effectComposer, bokehPass, renderPass, renderTarget, controls
+let renderer, effectComposer, bokehPass, renderPass, renderTarget, controls
 
 // Resize
 const sizes = {
@@ -46,7 +48,7 @@ const setupScene = (canvas) => {
 
     // Camera
     const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-    camera.position.set(1, 1, 1)
+    camera.position.set(1, 1, 0)
     scene.add(camera)
 
     // Controls
@@ -92,7 +94,7 @@ const setupScene = (canvas) => {
         texture: {
             width: 32,
             height: 128,
-            visible: true,
+            // visible: true,
             canvas: document.createElement('canvas')
         }
     }
@@ -176,13 +178,6 @@ const setupScene = (canvas) => {
         terrain.material.uniforms.uTexture.value = tex.instance
     })
 
-    // gui.add(tex, 'smallLineAlpha', 0.0, 0.6, 0.0001).onChange((value) => {
-    //     tex.smallLineWidth = value
-    //     tex.update()
-    //     tex.instance.needsUpdate = true
-    //     terrain.material.uniforms.uTexture.value = tex.instance
-    // })
-
     // geometry
     terrain.geometry = new THREE.PlaneGeometry(1, 1, 1000, 1000)
     terrain.geometry.rotateX(-Math.PI * 0.5)
@@ -252,6 +247,36 @@ const setupScene = (canvas) => {
     gui.add(bokehPass.materialBokeh.uniforms.aperture, 'value', 0.0, 0.05).name('bokehPass aperture')
     gui.add(bokehPass.materialBokeh.uniforms.maxblur, 'value', 0.0, 0.05).name('bokehPass maxblur')
 
+    // vignette
+    const vignette = {}
+    vignette.color = {}
+    vignette.color.value = '#6800ff'
+    vignette.color.instance = new THREE.Color(vignette.color.value)
+    vignette.geometry = new THREE.PlaneGeometry(2, 2)
+    vignette.material = new THREE.ShaderMaterial({
+        vertexShader: vignetteVertexShader,
+        fragmentShader: vignetteFragmentShader,
+        transparent: true,
+        depthTest: false,
+        uniforms: {
+            uOffset: { value: -0.165 },
+            uMultiplier: { value: 1.16 },
+            uColor: { value: vignette.color.instance }
+        }
+    })
+    vignette.mesh = new THREE.Mesh(vignette.geometry, vignette.material)
+    vignette.mesh.userData.noBokeh = true
+    vignette.mesh.frostumCulled = false
+    scene.add(vignette.mesh)
+
+    const folderV = gui.addFolder('vignette')
+    folderV.addColor(vignette.color, 'value').onChange((value) => {
+        vignette.color.instance.set(value)
+    })
+    folderV.add(vignette.material.uniforms.uMultiplier, 'value', 0.0, 3).name('Multiplier')
+    folderV.add(vignette.material.uniforms.uOffset, 'value', -1, 1).name('Offset')
+
+    // resize
     const handleResize = () => {
         // Update sizes
         sizes.width = window.innerWidth
@@ -271,8 +296,8 @@ const setupScene = (canvas) => {
         effectComposer.setPixelRatio(sizes.pixelRatio)
 
         // Update passes
-        bokehPass.renderTarget.width = sizes.width * sizes.pixelRatio
-        bokehPass.renderTarget.height = sizes.height * sizes.pixelRatio
+        bokehPass.renderTargetDepth.width = sizes.width * sizes.pixelRatio
+        bokehPass.renderTargetDepth.height = sizes.height * sizes.pixelRatio
     }
 
     // Animate
@@ -303,7 +328,7 @@ onMounted(() => {
     }
 })
 onBeforeUnmount(() => {
-    // window.removeEventListener('resize', handleResize)
+    window.removeEventListener('resize', handleResize)
     renderer?.dispose()
 })
 </script>
