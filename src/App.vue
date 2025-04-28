@@ -29,7 +29,7 @@ const webgl = ref(null)
 const scene = new THREE.Scene()
 const gui = new GUI()
 
-let renderer, effectComposer, bokehPass, renderPass, renderTarget, controls
+let renderer, effectComposer, bokehPass, renderPass, renderTarget, orbitControls
 
 // Resize
 const sizes = {
@@ -47,16 +47,21 @@ const setupScene = (canvas) => {
     renderer.setPixelRatio(sizes.pixelRatio)
 
     // Camera
-    const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-    camera.position.set(1, 1, 0)
-    scene.add(camera)
+    const camera = {}
+    camera.position = new THREE.Vector3()
+    camera.rotation = new THREE.Euler()
+    // camera.rotation.reorder('YXZ')
 
-    // Controls
-    controls = new OrbitControls(camera, canvas)
-    controls.enableDamping = false
-    controls.addEventListener('change', () => {
-        renderer.render(scene, camera)
-    })
+    camera.instance = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+    camera.instance.rotation.reorder('YXZ')
+    scene.add(camera.instance)
+
+    // orbitControls
+    // orbitControls = new OrbitControls(camera, canvas)
+    // orbitControls.enableDamping = false
+    // orbitControls.addEventListener('change', () => {
+    //     renderer.render(scene, camera)
+    // })
 
     // Effect composer
     renderTarget = new THREE.WebGLRenderTarget(800, 600, {
@@ -70,11 +75,11 @@ const setupScene = (canvas) => {
     effectComposer.setPixelRatio(sizes.pixelRatio)
 
     // Render pass
-    renderPass = new RenderPass(scene, camera)
+    renderPass = new RenderPass(scene, camera.instance)
     effectComposer.addPass(renderPass)
 
     // Bokeh pass
-    bokehPass = new BokehPass(scene, camera, {
+    bokehPass = new BokehPass(scene, camera.instance, {
         focus: 1.0,
         aperture: 0.015,
         maxblur: 0.01,
@@ -273,8 +278,73 @@ const setupScene = (canvas) => {
     folderV.addColor(vignette.color, 'value').onChange((value) => {
         vignette.color.instance.set(value)
     })
+
+    // gui
     folderV.add(vignette.material.uniforms.uMultiplier, 'value', 0.0, 3).name('Multiplier')
     folderV.add(vignette.material.uniforms.uOffset, 'value', -1, 1).name('Offset')
+
+    /**
+     * View
+     */
+
+    const view = {}
+    view.index = 0
+    view.settings = [
+        {
+            position: { x: 0, y: 2.124, z: -0.172 },
+            rotation: { x: -1.489, y: -Math.PI, z: 0 },
+            focus: 2.14,
+            parallaxMultiplier: 0.25
+        },
+        {
+            position: { x: 1, y: 1.1, z: 0 },
+            rotation: { x: -0.833, y: 1.596, z: 1.651 },
+            focus: 1.1,
+            parallaxMultiplier: 0.12
+        },
+        {
+            position: { x: 1, y: 0.87, z: -0.97 },
+            rotation: { x: -0.638, y: 2.33, z: 0 },
+            focus: 1.36,
+            parallaxMultiplier: 0.12
+        },
+        {
+            position: { x: -1.43, y: 0.33, z: -0.144 },
+            rotation: { x: -0.312, y: -1.67, z: 0 },
+            focus: 1.25,
+            parallaxMultiplier: 0.12
+        }
+    ]
+
+    // Parallax
+    view.parallax = {}
+    view.parallax.target = {}
+    view.parallax.target.x = 0
+    view.parallax.target.y = 0
+    view.parallax.eased = {}
+    view.parallax.eased.x = 0
+    view.parallax.eased.y = 0
+    view.parallax.eased.multiplier = 4
+
+    window.addEventListener('mousemove', (_event) => {
+        view.parallax.target.x = (_event.clientX / sizes.width - 0.5) * view.parallax.multiplier
+        view.parallax.target.y = -(_event.clientY / sizes.height - 0.5) * view.parallax.multiplier
+    })
+
+    view.change = (_index) => {
+        const viewSetting = view.settings[_index]
+        camera.position.copy(viewSetting.position)
+        camera.rotation.x = viewSetting.rotation.x
+        camera.rotation.y = viewSetting.rotation.y
+
+        bokehPass.materialBokeh.uniforms.focus.value = viewSetting.focus
+        view.parallax.multiplier = viewSetting.parallaxMultiplier
+    }
+    view.change(0)
+
+    gui.add(view.change, '_index', { V1: 0, V2: 1, V3: 2, V4: 3 }).onChange((value) => {
+        view.change(value)
+    })
 
     // resize
     const handleResize = () => {
@@ -284,8 +354,8 @@ const setupScene = (canvas) => {
         sizes.pixelRatio = Math.min(window.devicePixelRatio, 2)
 
         // Update camera
-        camera.aspect = sizes.width / sizes.height
-        camera.updateProjectionMatrix()
+        camera.instance.aspect = sizes.width / sizes.height
+        camera.instance.updateProjectionMatrix()
 
         // Update renderer
         renderer.setSize(sizes.width, sizes.height)
@@ -313,7 +383,19 @@ const setupScene = (canvas) => {
         // Update uniforms
         terrain.uniforms.uTime.value = elapsedTime
 
-        controls.update()
+        // Update parallax
+        camera.instance.position.copy(camera.position)
+        view.parallax.eased.x +=
+            (view.parallax.target.x - view.parallax.eased.x) * deltaTime * view.parallax.eased.multiplier
+        view.parallax.eased.y +=
+            (view.parallax.target.y - view.parallax.eased.y) * deltaTime * view.parallax.eased.multiplier
+        camera.instance.translateX(view.parallax.eased.x)
+        camera.instance.translateY(view.parallax.eased.y)
+        camera.instance.rotation.x = camera.rotation.x
+        camera.instance.rotation.y = camera.rotation.y
+
+        // orbitControls.update()
+
         // renderer.render(scene, camera)
         effectComposer.render()
         window.requestAnimationFrame(tick)
@@ -328,7 +410,7 @@ onMounted(() => {
     }
 })
 onBeforeUnmount(() => {
-    window.removeEventListener('resize', handleResize)
+    // window.removeEventListener('resize', handleResize)
     renderer?.dispose()
 })
 </script>
