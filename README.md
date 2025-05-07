@@ -7,4 +7,4 @@
 -   VUE + Three.js
 -   [Vite Plugin GLSL](https://www.npmjs.com/package/vite-plugin-glsl) - Import, inline GLSL shader files
 
-[demo](https://happy-balloon.zeabur.app/)
+[demo](https://holographic-terrain.pages.dev/)
