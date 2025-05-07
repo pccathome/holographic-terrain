@@ -14,7 +14,7 @@ float getElevation(vec2 _position)
     float elevation = 0.0;
 
     // Valley
-    float valleyStrength = cos(_position.y * uElevationValleyFrequency + 3.1415) * 0.5 + 0.5;
+    float valleyStrength = cos(_position.y * uElevationValleyFrequency + 3.1415) * 0.5 + 0.85;
     elevation += valleyStrength * uElevationValley;
 
     // General elevation

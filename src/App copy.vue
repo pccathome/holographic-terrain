@@ -1,7 +1,9 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import * as THREE from 'three'
+import GUI from 'lil-gui'
 import { gsap } from 'gsap'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { BokehPass } from './Passes/BokehPass.js'
@@ -22,8 +24,9 @@ import vignetteFragmentShader from './shaders/overly/fragment.glsl'
 // Refs & Globals
 const webgl = ref(null)
 const scene = new THREE.Scene()
+const gui = new GUI()
 
-let renderer, effectComposer, bokehPass, renderPass, renderTarget
+let renderer, effectComposer, bokehPass, renderPass, renderTarget, orbitControls
 
 // Resize
 const sizes = {
@@ -49,6 +52,13 @@ const setupScene = (canvas) => {
     camera.instance = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
     camera.instance.rotation.reorder('YXZ')
     scene.add(camera.instance)
+
+    // orbitControls
+    // orbitControls = new OrbitControls(camera.instance, canvas)
+    // orbitControls.enableDamping = true
+    // orbitControls.addEventListener('change', () => {
+    //     renderer.render(scene, camera)
+    // })
 
     // Effect composer
     renderTarget = new THREE.WebGLRenderTarget(800, 600, {
@@ -92,9 +102,9 @@ const setupScene = (canvas) => {
     }
 
     const tex = terrain.texture
-    tex.linesCount = 4
-    tex.bigLineWidth = 0.09
-    tex.smallLineWidth = 0.005
+    tex.linesCount = 5
+    tex.bigLineWidth = 0.08
+    tex.smallLineWidth = 0.01
     tex.smallLineAlpha = 0.5
     tex.canvas.width = tex.width
     tex.canvas.height = tex.height
@@ -144,6 +154,28 @@ const setupScene = (canvas) => {
 
     tex.update()
 
+    // GUI
+    gui.add(tex, 'linesCount', 1, 10, 1).onChange((value) => {
+        tex.linesCount = value
+        tex.update()
+        tex.instance.needsUpdate = true
+        terrain.material.uniforms.uTexture.value = tex.instance
+    })
+
+    gui.add(tex, 'bigLineWidth', 0.0, 0.1, 0.0001).onChange((value) => {
+        tex.bigLineWidth = value
+        tex.update()
+        tex.instance.needsUpdate = true
+        terrain.material.uniforms.uTexture.value = tex.instance
+    })
+
+    gui.add(tex, 'smallLineWidth', 0.0, 0.05, 0.001).onChange((value) => {
+        tex.smallLineWidth = value
+        tex.update()
+        tex.instance.needsUpdate = true
+        terrain.material.uniforms.uTexture.value = tex.instance
+    })
+
     // geometry
     terrain.geometry = new THREE.PlaneGeometry(1, 1, 1000, 1000)
     terrain.geometry.rotateX(-Math.PI * 0.5)
@@ -151,7 +183,7 @@ const setupScene = (canvas) => {
     // terrain uniform
     terrain.uniforms = {
         uTexture: { value: tex.instance },
-        uElevation: { value: 2.2 },
+        uElevation: { value: 2.0 },
         uTextureFrequency: { value: 10.0 },
         uElevationValley: { value: 0.4 },
         uElevationValleyFrequency: { value: 1.5 },
@@ -205,6 +237,13 @@ const setupScene = (canvas) => {
     terrain.mesh.userData.depthMaterial = terrain.depthMaterial
     scene.add(terrain.mesh)
 
+    gui.add(terrain.material.uniforms.uTextureFrequency, 'value', 0.0, 20).name('uTextureFrequency')
+    gui.add(terrain.material.uniforms.uElevation, 'value', 0.0, 5).name('uElevation')
+
+    gui.add(bokehPass.materialBokeh.uniforms.focus, 'value', 0.1, 10).name('bokehPass Focus')
+    gui.add(bokehPass.materialBokeh.uniforms.aperture, 'value', 0.0, 0.05).name('bokehPass aperture')
+    gui.add(bokehPass.materialBokeh.uniforms.maxblur, 'value', 0.0, 0.05).name('bokehPass maxblur')
+
     // vignette
     const vignette = {}
     vignette.color = {}
@@ -217,8 +256,8 @@ const setupScene = (canvas) => {
         transparent: true,
         depthTest: false,
         uniforms: {
-            uOffset: { value: -0.065 },
-            uMultiplier: { value: 1.25 },
+            uOffset: { value: -0.265 },
+            uMultiplier: { value: 1.16 },
             uColor: { value: vignette.color.instance }
         }
     })
@@ -227,21 +266,49 @@ const setupScene = (canvas) => {
     vignette.mesh.frostumCulled = false
     scene.add(vignette.mesh)
 
+    const folderV = gui.addFolder('vignette')
+    folderV.addColor(vignette.color, 'value').onChange((value) => {
+        vignette.color.instance.set(value)
+    })
+
+    // gui
+    folderV.add(vignette.material.uniforms.uMultiplier, 'value', 0.0, 3).name('Multiplier')
+    folderV.add(vignette.material.uniforms.uOffset, 'value', -1, 1).name('Offset')
+
     /**
-     * View position
+     * View
      */
 
     const view = {}
+    view.index = 0
     view.settings = [
+        // {
+        //     position: { x: 0, y: 2.124, z: -0.172 },
+        //     rotation: { x: -1.489, y: -Math.PI, z: 0 },
+        //     focus: 2.14,
+        //     parallaxMultiplier: 0.25
+        // },
         {
-            position: { x: 1, y: 0.85, z: 0.0 },
-            rotation: { x: -0.893, y: 1.596, z: 1.651 },
-            focus: 0.75,
-            parallaxMultiplier: 0.2
+            position: { x: 1, y: 0.85, z: 0.1 },
+            rotation: { x: -0.833, y: 1.596, z: 1.651 },
+            focus: 1.1,
+            parallaxMultiplier: 0.12
         }
+        // {
+        //     position: { x: 1, y: 0.87, z: -0.97 },
+        //     rotation: { x: -0.638, y: 2.33, z: 0 },
+        //     focus: 1.36,
+        //     parallaxMultiplier: 0.12
+        // },
+        // {
+        //     position: { x: -1.43, y: 0.33, z: -0.144 },
+        //     rotation: { x: -0.312, y: -1.67, z: 0 },
+        //     focus: 1.25,
+        //     parallaxMultiplier: 0.12
+        // }
     ]
 
-    view.current = view.settings
+    view.current = view.settings[view.index]
 
     // Parallax
     view.parallax = {}
@@ -271,11 +338,15 @@ const setupScene = (canvas) => {
     }
     view.change(0)
 
+    // gui.add(view.change, '_index', { V1: 0, V2: 1, V3: 2, V4: 3 }).onChange((value) => {
+    //     view.change(value)
+    // })
+
     // Focus
     const changeFocus = () => {
         gsap.to(bokehPass.materialBokeh.uniforms.focus, {
             duration: 0.5 + Math.random() * 3,
-            delay: 0.5 + Math.random() * 3,
+            delay: 0.5 + Math.random() * 1,
             ease: 'power2.inOut',
             onComplete: changeFocus,
             value: view.current.focus + (Math.random() - 0.2)
@@ -347,7 +418,7 @@ onMounted(() => {
     }
 })
 onBeforeUnmount(() => {
-    window.removeEventListener('resize', handleResize)
+    // window.removeEventListener('resize', handleResize)
     renderer?.dispose()
 })
 </script>
@@ -356,21 +427,12 @@ onBeforeUnmount(() => {
     <PageWrap>
         <Header />
 
-        <div
-            class="absolute w-fit top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mix-blend-exclusion text-white text-center font-Orbitron font-bold text-[9vmin]"
-        >
-            holographic
-        </div>
-
         <canvas class="outline-none w-full h-dvh" ref="webgl"></canvas>
 
         <FooterInfo>
             <template v-slot:first>
-                <a
-                    href="https://www.youtube.com/watch?v=DnBYm6-D9NU&t=6434s&ab_channel=BrunoSimon"
-                    target="_blank"
-                    class="underline-offset-2 font-medium"
-                    >Holographic Terrain - Bruno Simon</a
+                <a href="https://www.solarsystemscope.com/" target="_blank" class="underline-offset-2 font-medium"
+                    >Earth Textures - Solar system scope</a
                 >
             </template>
             <template v-slot:second> </template>

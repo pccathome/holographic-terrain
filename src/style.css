@@ -3,3 +3,19 @@
 body {
     @apply bg-black;
 }
+
+/* @font-face {
+    font-family: 'Orbitron';
+    font-display: swap;
+    src: url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap') format('woff2');
+} */
+
+@font-face {
+    font-family: Orbitron;
+    font-display: swap;
+    src: url('/fonts/Orbitron-VariableFont_wght.woff2') format('woff2');
+}
+
+@theme {
+    --font-Orbitron: 'Orbitron';
+}

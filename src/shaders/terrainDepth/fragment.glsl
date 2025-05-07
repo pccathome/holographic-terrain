@@ -1,8 +1,3 @@
-#if DEPTH_PACKING == 3200
-
-	uniform float opacity;
-
-#endif
 
 #include <common>
 #include <packing>
